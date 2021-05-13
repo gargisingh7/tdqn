@@ -6,6 +6,7 @@ import random
 import itertools
 from util import pad_sequences
 from memory import State
+from transformers import BertModel, BertConfig
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,7 +19,11 @@ class DRRN(torch.nn.Module):
     """
     def __init__(self, vocab_size, embedding_dim, hidden_dim):
         super(DRRN, self).__init__()
-        self.embedding    = nn.Embedding(vocab_size, embedding_dim)
+        #self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.bert = BertModel.from_pretrained('bert-base-cased')
+        embedding_dim = 768
+        for param in self.bert.parameters():
+            param.requires_grad = False
         self.obs_encoder  = nn.GRU(embedding_dim, hidden_dim)
         self.look_encoder = nn.GRU(embedding_dim, hidden_dim)
         self.inv_encoder  = nn.GRU(embedding_dim, hidden_dim)
@@ -43,7 +48,9 @@ class DRRN(torch.nn.Module):
         x_tt = torch.from_numpy(padded_x).type(torch.long).to(device)
         x_tt = x_tt.index_select(0, idx_sort)
         # Run the embedding layer
-        embed = self.embedding(x_tt).permute(1,0,2) # Time x Batch x EncDim
+        embedding_output = self.bert(x_tt)[0]
+        embed = embedding_output.permute(1, 0, 2)  # Time x Batch x EncDim
+#         embed = self.embedding(x_tt).permute(1,0,2) # Time x Batch x EncDim
         # Pack padded batch of sequences for RNN module
         packed = nn.utils.rnn.pack_padded_sequence(embed, lengths)
         # Run the RNN
