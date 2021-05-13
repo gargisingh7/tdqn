@@ -54,7 +54,7 @@ class DRRN_Agent:
 
     def encode(self, obs_list):
         """ Encode a list of observations """
-        return [self.sent2ids(o) for o in obs_list]
+        return [self.act2ids(o) for o in obs_list]
 
 
     def act(self, states, poss_acts, sample=True):
