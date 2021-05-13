@@ -16,13 +16,25 @@ class DRRN(torch.nn.Module):
         Deep Reinforcement Relevance Network - He et al. '16
 
     """
-    def __init__(self, vocab_size, embedding_dim, hidden_dim):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_heads=4, attenttion_dim=16, dropout=0.1):
         super(DRRN, self).__init__()
         self.embedding    = nn.Embedding(vocab_size, embedding_dim)
         self.obs_encoder  = nn.GRU(embedding_dim, hidden_dim)
         self.look_encoder = nn.GRU(embedding_dim, hidden_dim)
         self.inv_encoder  = nn.GRU(embedding_dim, hidden_dim)
         self.act_encoder  = nn.GRU(embedding_dim, hidden_dim)
+        
+        # Attention layer
+        self.KVQ = nn.Sequential(
+            nn.Linear(1, int(attenttion_dim/2)),
+            nn.Dropout(dropout),
+            nn.ReLU(inplace=True),
+            nn.Linear(int(attenttion_dim/2), attenttion_dim)
+        )
+        self.self_attn = nn.MultiheadAttention(attenttion_dim, num_heads)
+#         self.self_attn2 = nn.MultiheadAttention(attenttion_dim, num_heads)
+        self.KVQ_inverse = nn.Linear(attenttion_dim, 1)
+        
         self.hidden       = nn.Linear(4*hidden_dim, hidden_dim)
         self.act_scorer   = nn.Linear(hidden_dim, 1)
 
@@ -63,7 +75,6 @@ class DRRN(torch.nn.Module):
             Batched forward pass.
             obs_id_batch: iterable of unpadded sequence ids
             act_batch: iterable of lists of unpadded admissible command ids
-
             Returns a tuple of tensors containing q-values for each item in the batch
         """
         # Zip the state_batch into an easy access format
@@ -77,10 +88,29 @@ class DRRN(torch.nn.Module):
         obs_out = self.packed_rnn(state.obs, self.obs_encoder)
         look_out = self.packed_rnn(state.description, self.look_encoder)
         inv_out = self.packed_rnn(state.inventory, self.inv_encoder)
-        state_out = torch.cat((obs_out, look_out, inv_out), dim=1)
+        state_out = torch.cat((obs_out, look_out, inv_out), dim=1) #batch(32)*hid_dim(128*3)
+        
+        #attention_computation
+#         print("1", state_out.size(), act_out.size(), act_sizes)
+        state_out = self.KVQ( state_out.reshape(state_out.size()[0], state_out.size()[1], 1) )
+        act_out = self.KVQ( act_out.reshape(act_out.size()[0], act_out.size()[1], 1) )
+#         print("2", state_out.size(), act_out.size())
         # Expand the state to match the batches of actions
-        state_out = torch.cat([state_out[i].repeat(j,1) for i,j in enumerate(act_sizes)], dim=0)
-        z = torch.cat((state_out, act_out), dim=1) # Concat along hidden_dim
+        state_out = torch.cat([state_out[i].repeat(j, 1, 1) for i, j in enumerate(act_sizes)], dim=0)
+#         print("3", state_out.size(), act_out.size())
+        state_out, _ = self.self_attn(state_out.transpose(1,0), act_out.transpose(1,0), act_out.transpose(1,0))
+#         state_out, _ = self.self_attn2(state_out, act_out.transpose(1,0), act_out.transpose(1,0))
+#         print("4", state_out.size(), act_out.size())
+        state_out = self.KVQ_inverse( state_out.transpose(1,0) )
+        act_out = self.KVQ_inverse( act_out )
+#         print("5", state_out.size(), act_out.size())    
+        z = torch.cat((torch.squeeze(state_out), torch.squeeze(act_out)), dim=1)  # Concat along hidden_dim
+#         print(z.size())
+
+#         # Expand the state to match the batches of actions
+#         state_out = torch.cat([state_out[i].repeat(j, 1) for i, j in enumerate(act_sizes)], dim=0)
+#         z = torch.cat((state_out, act_out), dim=1)  # Concat along hidden_dim
+        
         z = F.relu(self.hidden(z))
         act_values = self.act_scorer(z).squeeze(-1)
         # Split up the q-values by batch
