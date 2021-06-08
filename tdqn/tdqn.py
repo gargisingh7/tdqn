@@ -19,6 +19,8 @@ from models import TDQN
 from env import *
 import jericho
 from jericho.template_action_generator import TemplateActionGenerator
+from jericho.util import clean
+from transformers import DistilBertModel, DistilBertConfig
 
 import sentencepiece as spm
 
