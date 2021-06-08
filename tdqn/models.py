@@ -4,16 +4,20 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 import random
-
+from transformers import DistilBertModel, DistilBertConfig
 
 class TDQN(nn.Module):
     def __init__(self, args, template_size, vocab_size, vocab_size_act):
         super(TDQN, self).__init__()
 
-        self.embeddings = nn.Embedding(vocab_size_act, args.embedding_size)
-
+#         self.embeddings = nn.Embedding(vocab_size_act, args.embedding_size)
+        self.bert = DistilBertModel.from_pretrained('distilbert-base-cased')
+        embedding_dim = 768
+        for param in self.bert.parameters():
+            param.requires_grad = False
+            
         self.state_network = StateNetwork(args, vocab_size)
-
+    
         self.t_scorer = nn.Linear(args.hidden_size, template_size)
         self.o1_scorer = nn.Linear(args.hidden_size, vocab_size_act)
         self.o2_scorer = nn.Linear(args.hidden_size, vocab_size_act)
