@@ -100,11 +100,17 @@ class PackedEncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(PackedEncoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.embedding = nn.Embedding(input_size, hidden_size)
+        #self.embedding = nn.Embedding(input_size, hidden_size)
+        self.bert = DistilBertModel.from_pretrained('distilbert-base-cased')
+        embedding_dim = 768
+        for param in self.bert.parameters():
+            param.requires_grad = False
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden=None):
-        embedded = self.embedding(input).permute(1,0,2) # T x Batch x EmbDim
+        #embedded = self.embedding(input).permute(1,0,2) # T x Batch x EmbDim
+        embedding_output = self.bert(x_tt)[0]
+        embedded = embedding_output.permute(1, 0, 2)  # Time x Batch x EncDim
         if hidden is None:
             hidden = self.initHidden(input.size(0))
 
