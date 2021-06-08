@@ -39,6 +39,9 @@ class TDQN_Trainer(object):
         configure_logger(args.output_dir)
         log(args)
         self.args = args
+        
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-cased')
+        self.tokenizer.add_special_tokens({'cls_token': '[CLS]', 'sep_token': '[SEP]'})
 
         self.log_freq = args.log_freq
         self.update_freq = args.update_freq_td
@@ -82,7 +85,19 @@ class TDQN_Trainer(object):
         vocab_rev = {v: idx for idx, v in vocab.items()}
         env.close()
         return vocab, vocab_rev
+    
+    def act2ids(self, act):
+        ret = self.tokenizer.encode(clean(act), add_prefix_space=True)
+        if not ret: ret = [0]
+        return ret
 
+    def sent2ids(self, sent, maxlen=512):
+        ret = self.tokenizer.encode(clean(sent))
+        if len(ret) > maxlen:
+            ret = ret[-maxlen:]
+        if not ret: ret = [0]
+        return ret
+    
     def state_rep_generator(self, state_description):
         remove = ['=', '-', '\'', ':', '[', ']', 'eos', 'EOS', 'SOS', 'UNK', 'unk', 'sos', '<', '>']
         for rm in remove:
@@ -90,7 +105,7 @@ class TDQN_Trainer(object):
 
         state_description = state_description.split('|')
 
-        ret = [self.sp.encode_as_ids('<s>' + s_desc + '</s>') for s_desc in state_description]
+        ret = [self.sent2ids(s_desc) for s_desc in state_description]
 
         return pad_sequences(ret, maxlen=self.args.max_seq_len)
 
