@@ -109,7 +109,7 @@ class PackedEncoderRNN(nn.Module):
 
     def forward(self, input, hidden=None):
         #embedded = self.embedding(input).permute(1,0,2) # T x Batch x EmbDim
-        embedding_output = self.bert(x_tt)[0]
+        embedding_output = self.bert(input)[0]
         embedded = embedding_output.permute(1, 0, 2)  # Time x Batch x EncDim
         if hidden is None:
             hidden = self.initHidden(input.size(0))
