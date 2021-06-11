@@ -13,7 +13,7 @@ class TDQN(nn.Module):
 #         self.embeddings = nn.Embedding(vocab_size_act, args.embedding_size)
         self.bert = DistilBertModel.from_pretrained('distilbert-base-cased')
         embedding_dim = 768
-        hidden_size = 768
+        args.hidden_size = 768
         for param in self.bert.parameters():
             param.requires_grad = False
             
