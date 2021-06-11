@@ -9,6 +9,7 @@ from util import *
 import logger
 import sentencepiece as spm
 from transformers import DistilBertModel, DistilBertConfig
+from jericho.util import clean
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
