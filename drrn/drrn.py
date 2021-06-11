@@ -8,12 +8,15 @@ from model import DRRN
 from util import *
 import logger
 import sentencepiece as spm
-
+from transformers import DistilBertModel, DistilBertConfig
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DRRN_Agent:
     def __init__(self, args):
+        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-cased')
+        self.tokenizer.add_special_tokens({'cls_token': '[CLS]', 'sep_token': '[SEP]'})
+        
         self.gamma = args.gamma
         self.batch_size = args.batch_size
         self.sp = spm.SentencePieceProcessor()
@@ -28,19 +31,30 @@ class DRRN_Agent:
 
     def observe(self, state, act, rew, next_state, next_acts, done):
         self.memory.push(state, act, rew, next_state, next_acts, done)
+        
+    def act2ids(self, act):
+        ret = self.tokenizer.encode(clean(act), add_prefix_space=True)
+        if not ret: ret = [0]
+        return ret
 
+    def sent2ids(self, sent, maxlen=512):
+        ret = self.tokenizer.encode(clean(sent))
+        if len(ret) > maxlen:
+            ret = ret[-maxlen:]
+        if not ret: ret = [0]
+        return ret
 
     def build_state(self, obs, infos):
         """ Returns a state representation built from various info sources. """
-        obs_ids = [self.sp.EncodeAsIds(o) for o in obs]
-        look_ids = [self.sp.EncodeAsIds(info['look']) for info in infos]
-        inv_ids = [self.sp.EncodeAsIds(info['inv']) for info in infos]
+        obs_ids = [sent2ids(o) for o in obs]
+        look_ids = [sent2ids(info['look']) for info in infos]
+        inv_ids = [sent2ids(info['inv']) for info in infos]
         return [State(ob, lk, inv) for ob, lk, inv in zip(obs_ids, look_ids, inv_ids)]
 
 
     def encode(self, obs_list):
         """ Encode a list of observations """
-        return [self.sp.EncodeAsIds(o) for o in obs_list]
+        return [sent2ids(o) for o in obs_list]
 
 
     def act(self, states, poss_acts, sample=True):
