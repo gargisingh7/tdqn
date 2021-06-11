@@ -46,15 +46,15 @@ class DRRN_Agent:
 
     def build_state(self, obs, infos):
         """ Returns a state representation built from various info sources. """
-        obs_ids = [sent2ids(o) for o in obs]
-        look_ids = [sent2ids(info['look']) for info in infos]
-        inv_ids = [sent2ids(info['inv']) for info in infos]
+        obs_ids = [self.sent2ids(o) for o in obs]
+        look_ids = [self.sent2ids(info['look']) for info in infos]
+        inv_ids = [self.sent2ids(info['inv']) for info in infos]
         return [State(ob, lk, inv) for ob, lk, inv in zip(obs_ids, look_ids, inv_ids)]
 
 
     def encode(self, obs_list):
         """ Encode a list of observations """
-        return [sent2ids(o) for o in obs_list]
+        return [self.sent2ids(o) for o in obs_list]
 
 
     def act(self, states, poss_acts, sample=True):
